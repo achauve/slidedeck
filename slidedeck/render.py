@@ -21,16 +21,15 @@ import markdown
 # % author: FirstName LastName
 #
 # Will be detected.
-DECK_SETTINGS_RE = {
-    'thankyou': u'^%\s*thankyou:(.*)$',
-    'thankyou_details': u'^%\s*thankyou_details:(.*)$',
-    'title': u'^%\s*title:(.*)$',
-    'subtitle': u'^%\s*subtitle:(.*)$',
-    'author': u'^%\s*author:(.*)$',
-    'contact': u'^%\s*contact:(.*)$',
-    'favicon': u'^%\s*favicon:(.*)$',
-
-}
+DECK_SETTINGS = (
+    'thankyou',
+    'thankyou_details',
+    'title',
+    'subtitle',
+    'author',
+    'contact',
+    'favicon',
+)
 
 #############################################################################
 # Functions related to the render command
@@ -91,7 +90,7 @@ def parse_deck_settings(md):
 
     Returns
     -------
-    md : unicode
+    cleaned_source : unicode
         The markdown source, after the settings have been removed, such
         that they don't get actually put into the slides directly
     settings : dict
@@ -100,15 +99,21 @@ def parse_deck_settings(md):
         from the document.
     """
     settings = defaultdict(lambda: [])
-    for key, value in DECK_SETTINGS_RE.items():
-        found = True
-        while found:
-            m = re.search(value, md, re.MULTILINE)
-            if m:
-                settings[key].append(m.group(1))
-                md = re.sub(m.group(0), '', md, re.MULTILINE)
-            else:
-                found = False
+
+    settings_lines = []
+    other_lines = []
+
+    for line in md.split('\n'):
+        if line.startswith('%'):
+            settings_lines.append(line)
+        else:
+            other_lines.append(line)
+
+    for line in settings_lines:
+        for setting in DECK_SETTINGS:
+            setting_str = '% {setting}: '.format(setting=setting)
+            if line.startswith(setting_str):
+                settings[setting].append(line.split(setting_str)[1])
 
     # if a setting is repeated, we join them together with a <br/> tag
     # in between.
@@ -117,8 +122,8 @@ def parse_deck_settings(md):
     print("Parsed slide deck settings, and found setting for: {:s}.".format(', '.join(settings.keys())))
     # strip off the newline characters at the beginning and end of the document
     # that might have been left
-    md = md.strip()
-    return md, settings
+    cleaned_source = u'\n'.join(other_lines).strip()
+    return cleaned_source, settings
 
 
 def parse_metadata(section):
